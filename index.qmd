@@ -1,0 +1,60 @@
+---
+title: "MLB Home Runs by Field Direction and Ballpark Dimensions"
+author: "Student"
+format: html
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## Project Overview
+
+I want to find out how many MLB ballparks would turn the same hit into a home run based on its exit velocity, launch angle, and direction. I will compare left field, center field, and right field to see how different stadium dimensions affect the outcome.
+
+### Intended Audience
+
+The main audience is people who watch and enjoy Major League Baseball. However, this project could also interest anyone who enjoys sports, coding, or statistics and wants to learn how data can explain what happens in baseball.
+
+### Why This Topic Matters
+
+This topic interests me because I play baseball and enjoy watching MLB. I want to explore how different ballpark dimensions affect home runs and why the same hit might be a home run in one stadium but stay in play in another. I also think it would be interesting to combine my passion for baseball with coding and data analysis to discover patterns across all MLB ballparks.
+
+## Preliminary Visualization
+
+```{r}
+library(readr)
+library(dplyr)
+library(ggplot2)
+
+# Load Statcast batted ball data
+batted <- read_csv("data/batted_balls.csv", show_col_types = FALSE) |>
+  filter(!is.na(launch_speed), !is.na(launch_angle), !is.na(hc_x), !is.na(hc_y)) |>
+  mutate(
+    # Calculate spray angle in degrees (negative = left, positive = right)
+    spray_angle = atan((hc_x - 125.42) / (198.27 - hc_y)) * 180 / pi,
+    field_direction = case_when(
+      spray_angle < -15 ~ "Left Field",
+      spray_angle > 15 ~ "Right Field",
+      TRUE ~ "Center Field"
+    ),
+    field_direction = factor(field_direction, levels = c("Left Field", "Center Field", "Right Field")),
+    outcome = if_else(events == "home_run", "Home Run", "Out / Non-HR")
+  )
+
+# Plot Exit Velocity vs Launch Angle faceted by field direction
+ggplot(batted, aes(x = launch_speed, y = launch_angle, color = outcome)) +
+  geom_point(alpha = 0.6, size = 1.8) +
+  facet_wrap(~ field_direction) +
+  scale_color_manual(values = c("Home Run" = "#d95f02", "Out / Non-HR" = "#7570b3")) +
+  labs(
+    title = "MLB Home Runs by Exit Velocity, Launch Angle, and Field Direction",
+    subtitle = "Comparing batted ball outcomes across outfield directions",
+    x = "Exit Velocity (mph)",
+    y = "Launch Angle (degrees)",
+    color = "Outcome",
+    caption = "Source: Baseball Savant (Statcast)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "bottom")
+```
