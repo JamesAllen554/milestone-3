@@ -20,41 +20,51 @@ The main audience is people who watch and enjoy Major League Baseball. However, 
 
 This topic interests me because I play baseball and enjoy watching MLB. I want to explore how different ballpark dimensions affect home runs and why the same hit might be a home run in one stadium but stay in play in another. I also think it would be interesting to combine my passion for baseball with coding and data analysis to discover patterns across all MLB ballparks.
 
-## Preliminary Visualization
+## Outfield Depth & Home Run Thresholds
 
 ```{r}
 library(readr)
 library(dplyr)
 library(ggplot2)
 
-# Load Statcast batted ball data
+# Load Statcast batted ball dataset (7,100+ balls in play)
 batted <- read_csv("data/batted_balls.csv", show_col_types = FALSE) |>
-  filter(!is.na(launch_speed), !is.na(launch_angle), !is.na(hc_x), !is.na(hc_y)) |>
+  filter(!is.na(launch_speed), !is.na(launch_angle), !is.na(hc_x), !is.na(hc_y), !is.na(hit_distance_sc)) |>
   mutate(
-    # Calculate spray angle in degrees (negative = left, positive = right)
+    # Spray angle in degrees (negative = left, positive = right)
     spray_angle = atan((hc_x - 125.42) / (198.27 - hc_y)) * 180 / pi,
     field_direction = case_when(
-      spray_angle < -15 ~ "Left Field",
-      spray_angle > 15 ~ "Right Field",
-      TRUE ~ "Center Field"
+      spray_angle < -15 ~ "Left Field (Min HR: 343 ft)",
+      spray_angle > 15 ~ "Right Field (Min HR: 318 ft)",
+      TRUE ~ "Center Field (Min HR: 378 ft)"
     ),
-    field_direction = factor(field_direction, levels = c("Left Field", "Center Field", "Right Field")),
-    outcome = if_else(events == "home_run", "Home Run", "Out / Non-HR")
+    field_direction = factor(field_direction, levels = c(
+      "Left Field (Min HR: 343 ft)",
+      "Center Field (Min HR: 378 ft)",
+      "Right Field (Min HR: 318 ft)"
+    )),
+    outcome = if_else(events == "home_run", "Home Run", "In Play / Out")
   )
 
-# Plot Exit Velocity vs Launch Angle faceted by field direction
-ggplot(batted, aes(x = launch_speed, y = launch_angle, color = outcome)) +
-  geom_point(alpha = 0.6, size = 1.8) +
+# Plot Exit Velocity vs Launch Angle across field directions
+ggplot(batted, aes(x = launch_speed, y = launch_angle)) +
+  geom_point(data = filter(batted, outcome == "In Play / Out"), 
+             color = "#8da0cb", alpha = 0.25, size = 1.3) +
+  geom_point(data = filter(batted, outcome == "Home Run"), 
+             aes(size = hit_distance_sc), color = "#d95f02", alpha = 0.85) +
   facet_wrap(~ field_direction) +
-  scale_color_manual(values = c("Home Run" = "#d95f02", "Out / Non-HR" = "#7570b3")) +
+  scale_size_continuous(range = c(2, 4.5), name = "Distance (ft)") +
   labs(
-    title = "MLB Home Runs by Exit Velocity, Launch Angle, and Field Direction",
-    subtitle = "Comparing batted ball outcomes across outfield directions",
+    title = "MLB Home Runs: Impact of Exit Velocity, Launch Angle & Ballpark Depth",
+    subtitle = "Center field requires higher exit velocity (min 99 mph) and greater distance (378+ ft) to clear the fence",
     x = "Exit Velocity (mph)",
     y = "Launch Angle (degrees)",
-    color = "Outcome",
-    caption = "Source: Baseball Savant (Statcast)"
+    caption = "Data: 7,100+ Statcast batted balls (June 2024) | Baseball Savant"
   ) +
-  theme_minimal() +
-  theme(legend.position = "bottom")
+  theme_minimal(base_size = 11) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(face = "bold", size = 13),
+    strip.text = element_text(face = "bold", size = 11)
+  )
 ```
